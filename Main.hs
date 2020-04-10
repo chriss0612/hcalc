@@ -7,42 +7,80 @@ import Parsing
 data ValNumber
       = ValInt Integer
       | ValDouble Double
+      | ValComplex (Double, Double)
+      | ValErr [String]
       deriving (Show, Eq)
 
 instance Num ValNumber where
-      (+) (ValInt x) (ValInt y)           = ValInt $ x + y
-      (+) (ValDouble x) (ValInt y)        = ValDouble $ x + fromInteger y
-      (+) (ValInt x) (ValDouble y)        = ValDouble $ fromInteger x + y
-      (+) (ValDouble x) (ValDouble y)     = ValDouble $ x + y     
-      
-      (-) (ValInt x) (ValInt y)           = ValInt $ x - y
-      (-) (ValDouble x) (ValInt y)        = ValDouble $ x - fromInteger y
-      (-) (ValInt x) (ValDouble y)        = ValDouble $ fromInteger x - y
-      (-) (ValDouble x) (ValDouble y)     = ValDouble $ x - y
+      (+) (ValErr e1) (ValErr e2)     = ValErr $ e1 ++ e2
+      (+) (ValErr e1) (_)             = ValErr e1
+      (+) (_) (ValErr e2)             = ValErr e2
+      (+) (ValInt x) (ValInt y)       = ValInt $ x + y
+      (+) (ValInt x) (ValDouble y)    = ValDouble $ fromInteger x + y
+      (+) (ValInt x) (ValComplex (r2, i2))    = ValComplex (fromInteger x + r2, i2)
+      (+) (ValDouble x) (ValInt y)    = ValDouble $ x + fromInteger y
+      (+) (ValDouble x) (ValComplex (r2, i2))    = ValComplex (x + r2, i2)
+      (+) (ValDouble x) (ValDouble y) = ValDouble $ x + y
+      (+) (ValComplex (r1,i1)) (ValComplex (r2, i2))    = ValComplex (r1 + r2, i1 + i2)
+      (+) (ValComplex (r1,i1)) (ValInt y)    = ValComplex (r1 + fromInteger y, i1)
+      (+) (ValComplex (r1,i1)) (ValDouble y)    = ValComplex (r1 + y, i1)
 
-      (*) (ValInt x) (ValInt y)           = ValInt $ x * y
-      (*) (ValDouble x) (ValInt y)        = ValDouble $ x * fromInteger y
-      (*) (ValInt x) (ValDouble y)        = ValDouble $ fromInteger x * y
-      (*) (ValDouble x) (ValDouble y)     = ValDouble $ x * y
-      
-      abs (ValInt x) = ValInt $ abs x
+
+      (-) (ValErr e1) (ValErr e2)     = ValErr $ e1 ++ e2
+      (-) (ValErr e1) (_)             = ValErr e1
+      (-) (_) (ValErr e2)             = ValErr e2
+      (-) (ValInt x) (ValInt y)       = ValInt $ x - y
+      (-) (ValInt x) (ValDouble y)    = ValDouble $ fromInteger x - y
+      (-) (ValInt x) (ValComplex (r2, i2))    = ValComplex (fromInteger x - r2, i2)
+      (-) (ValDouble x) (ValInt y)    = ValDouble $ x - fromInteger y
+      (-) (ValDouble x) (ValComplex (r2, i2))    = ValComplex (x - r2, i2)
+      (-) (ValDouble x) (ValDouble y) = ValDouble $ x - y
+      (-) (ValComplex (r1,i1)) (ValComplex (r2, i2))    = ValComplex (r1 - r2, i1 - i2)
+      (-) (ValComplex (r1,i1)) (ValInt y)    = ValComplex (r1 - fromInteger y, i1)
+      (-) (ValComplex (r1,i1)) (ValDouble y)    = ValComplex (r1 - y, i1)
+
+
+      (*) (ValErr e1) (ValErr e2)     = ValErr $ e1 ++ e2
+      (*) (ValErr e1) (_)             = ValErr e1
+      (*) (_) (ValErr e2)             = ValErr e2
+      (*) (ValInt x) (ValInt y)       = ValInt $ x * y
+      (*) (ValInt x) (ValDouble y)    = ValDouble $ fromInteger x * y
+      (*) (ValInt x) (ValComplex (r2, i2))    = ValComplex (fromInteger x * r2, fromInteger x * i2)
+      (*) (ValDouble x) (ValInt y)    = ValDouble $ x * fromInteger y
+      (*) (ValDouble x) (ValComplex (r2, i2))    = ValComplex (x * r2, x * i2)
+      (*) (ValDouble x) (ValDouble y) = ValDouble $ x * y
+      (*) (ValComplex (r1,i1)) (ValComplex (r2, i2))    = ValComplex(r1 * r1 - i2 * i2, 2 * r1 * r2)
+      (*) (ValComplex (r1,i1)) (ValInt y)    = ValComplex (r1 * fromInteger y, i1 * fromInteger y)
+      (*) (ValComplex (r1,i1)) (ValDouble y)    = ValComplex (r1 * y, i1 * y)
+
+
+      abs (ValErr x) = ValErr x
+      abs (ValInt x)    = ValInt $ abs x
       abs (ValDouble x) = ValDouble $ abs x
 
-      signum (ValInt x) = ValInt $ signum x
+      signum (ValErr x) = ValErr x
+      signum (ValInt x)    = ValInt $ signum x
       signum (ValDouble x) = ValDouble $ signum x
 
       fromInteger = ValInt
-instance Fractional ValNumber where
-      (/) (ValInt x) (ValInt y)           = ValDouble $ fromInteger x / fromInteger y
-      (/) (ValDouble x) (ValInt y)        = ValDouble $ x / fromInteger y
-      (/) (ValInt x) (ValDouble y)        = ValDouble $ fromInteger x / y
-      (/) (ValDouble x) (ValDouble y)     = ValDouble $ x / y
+      
+instance Fractional ValNumber where -- TODO Complex support
+      (/) (ValErr e1) (ValErr e2)               = ValErr $ e1 ++ e2
+      (/) (ValErr e1) (_)                       = ValErr e1
+      (/) (_) (ValErr e2)                       = ValErr e2
+      (/) (ValInt x) (ValInt y)                 = ValDouble $ fromInteger x / fromInteger y
+      (/) (ValInt x) (ValDouble y)              = ValDouble $ fromInteger x / y
+      (/) (ValDouble x) (ValInt y)              = ValDouble $ x / fromInteger y
+      (/) (ValDouble x) (ValDouble y)           = ValDouble $ x / y
+      (/) (ValComplex (r1, i1)) (ValInt y)      = ValComplex (r1 / fromInteger y, i1 / fromInteger y)
+      (/) (ValComplex (r1, i1)) (ValDouble y)   = ValComplex (r1/y, i1/y)
+      (/) (_) (ValComplex y)                     = ValErr ["Div by Complex not supported"]
 
       fromRational (x)                    = ValDouble $ fromRational x
 
 toDouble :: ValNumber -> Double
-toDouble (ValInt x)           = fromInteger x
-toDouble (ValDouble x)        = x
+toDouble (ValInt x)    = fromInteger x
+toDouble (ValDouble x) = x
 
 
 valNat :: Parser ValNumber
@@ -72,16 +110,38 @@ valDouble = do    space
                   x <- valposdouble
                   space
                   return x
+--valImag :: Parser String
+valImag = char 'i' <|> char 'j'
+
+valSNumber = valDouble <|> valInt
+
+valComplex :: Parser ValNumber
+valComplex = do   x <- valSNumber
+                  space
+                  valImag
+                  space
+                  return $ ValComplex (0,toDouble x)
+            <|>
+            do    space
+                  valImag
+                  x <- valSNumber
+                  space
+                  return $ ValComplex (0,toDouble x)
+            <|>
+            do    space
+                  valImag
+                  space
+                  return $ ValComplex (0,1)
 
 valNumber :: Parser ValNumber
-valNumber = valDouble <|> valInt
+valNumber = valComplex <|> valSNumber
 
 expr :: Parser ValNumber
 expr = do   x <- term
             char '+'
             y <- expr
             return $ x + y
-      <|> 
+      <|>
       do    x <- term
             char '-'
             y <- exprNeg
@@ -91,12 +151,12 @@ expr = do   x <- term
 -- Magic to handle concurrent subtraction correctly (emulate evaluating left to right)
 -- Really hacky but I don't know Haskell well enough to do it better
 exprNeg :: Parser ValNumber
-exprNeg = 
-      do    x <- term  
+exprNeg =
+      do    x <- term
             char '-'
             y <- exprNeg
             return $ x + y
-      <|> 
+      <|>
       do    x <- term
             char '+'
             y <- expr
@@ -108,7 +168,7 @@ term = do   x <- factor
             char '*'
             y <- term
             return (x*y)
-      <|> 
+      <|>
       do    x <- factor
             char '/'
             y <- term
@@ -117,15 +177,16 @@ term = do   x <- factor
 
 factor :: Parser ValNumber
 factor = valNumber
-      <|> 
+      <|>
       do    space
-            char '(' 
+            char '('
             x <- expr
             char ')'
             space
             return x
       <|>
       funct
+
 funct :: Parser ValNumber
 funct = do  space
             string "sin("
@@ -245,11 +306,19 @@ funct = do  space
             space
             return $ ValDouble $ exp 1
 
+printErr (ValErr (x:xs), y) = do printErr (ValErr xs, y)
+                                 print x
+printErr (ValErr [], y) = print y
+
 --main :: IO ()
 main = do   putStrLn "Please enter the expression: "
             line <- getLine
             case parse expr line of
+                  [(ValErr x, y)] -> printErr(ValErr x, y)
                   [(ValDouble x, "")] -> print x
                   [(ValInt x, "")] -> print x
-                  --[(x, "")] -> print x
+                  [(ValComplex (r,i), "")] -> do      putStr . show $ r
+                                                      putStr " + "
+                                                      putStr . show $ i
+                                                      putStrLn " i"
                   _ -> putStrLn "Failed to evaluate expression"

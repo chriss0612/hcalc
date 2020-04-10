@@ -1,43 +1,43 @@
--- Parsing library by 
+-- Parsing library by
 -- from Computerphile Video
 -- https://www.youtube.com/watch?v=dDtZLm7HIJs
 
 
-module Parsing (module Parsing, module Control.Applicative) where 
+module Parsing (module Parsing, module Control.Applicative) where
 
-import Control.Applicative
-import Data.Char
+import           Control.Applicative
+import           Data.Char
 
 newtype Parser a = P (String -> [(a, String)])
 
 parse (P p) = p
 
 item = P (\inp -> case inp of
-                        []          -> []
-                        (x:xs)      -> [(x,xs)])
+                        []     -> []
+                        (x:xs) -> [(x,xs)])
 
 
 instance Functor Parser where
     fmap g p = P (\inp -> case parse p inp of
-                            []          -> []
-                            [(v,out)]   -> [(g v, out)])
+                            []        -> []
+                            [(v,out)] -> [(g v, out)])
 
 instance Applicative Parser where
     pure v      = P (\inp -> [(v, inp)])
-    pg <*> px   = P (\inp -> case parse pg inp of 
-                                []          -> []
+    pg <*> px   = P (\inp -> case parse pg inp of
+                                []        -> []
                                 [(g,out)] -> parse (fmap g px) out)
 
 instance Monad Parser where
     p >>= f = P (\inp -> case parse p inp of
-                              []          -> []
-                              [(v,out)]   -> parse (f v) out)
+                              []        -> []
+                              [(v,out)] -> parse (f v) out)
 
 instance Alternative Parser where
     empty = P (const [])
     p <|> q = P (\inp -> case parse p inp of
-                            []          -> parse q inp
-                            [(v,out)]   -> [(v,out)])
+                            []        -> parse q inp
+                            [(v,out)] -> [(v,out)])
 
 sat p = do x <- item
            if p x then return x else empty
